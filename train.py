@@ -304,7 +304,6 @@ def get_args():
     parser.add_argument('-s', '--svalue', metavar='PS', type=float, nargs='?', default=None,
                         help='Fixed Parameter s', dest='svalue') #指定しなけれbばｓは学習で自動探索、指定すればｓは固定
     
-
     return parser.parse_args()
 
 if __name__ == '__main__':
