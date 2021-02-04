@@ -31,7 +31,7 @@ class ResNet_face(nn.Module):
             self.backbone = models.resnet152()
             last_channels = 2048
         else:
-            logging.info(f'No such network {args.network}')
+            logging.info(f'No such network {args.backbone}')
             os._exit(0)
         
         if args.load:
