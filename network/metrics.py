@@ -5,7 +5,6 @@ from torch.nn import Parameter
 import math
 
 #TODO:デフォルトパラメータを論文推奨どおりに変更
-#TODO: 岡谷研方式を加える
 class SoftMaxLayer(nn.Module):
     def __init__(self, num_features, num_classes):
         super(SoftMaxLayer, self).__init__()
@@ -25,7 +24,7 @@ class SoftMaxLayer(nn.Module):
 
 
 class AdaCos(nn.Module):
-    def __init__(self, num_features, num_classes, m=0.50):
+    def __init__(self, num_features, num_classes, m=0.0):
         super(AdaCos, self).__init__()
         self.num_features = num_features
         self.n_classes = num_classes
@@ -57,8 +56,6 @@ class AdaCos(nn.Module):
         output = self.s * logits
 
         return output, theta, self.s, x, W
-
-
 
 
 class ArcFace(nn.Module):

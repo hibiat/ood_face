@@ -30,10 +30,10 @@ from predict import predict
 from tools import detailauc
 
 
-dir_train = '/home/keisoku/work/ood2/data/oct/minidata' #クラスごとに分かれたフォルダがある場所
-dir_test =  dir_train
-#dir_train = '/home/keisoku/work/ood2/data/oct/train'
-#dir_test = '/home/keisoku/work/ood2/data/oct/test'
+#ir_train = '/home/keisoku/work/ood2/data/oct/minidata' #クラスごとに分かれたフォルダがある場所
+#dir_test =  dir_train
+dir_train = '/home/keisoku/work/ood2/data/oct/train'
+dir_test = '/home/keisoku/work/ood2/data/oct/test'
 train_folders = 'oct_ind1' #folder2labelで既知クラス扱いにするフォルダ（train用）
 test_ind_folders = 'oct_ind1' #既知クラス扱いにするフォルダ（テスト用）
 test_ood_folders = 'oct_ood1' #未知クラス扱いにするフォルダ（テスト用）
@@ -301,8 +301,10 @@ def get_args():
     parser.add_argument('-n','--net', metavar='N', type = str, default='resnet18', choices=['resnet18','resnet34','resnet50','resnet101','resnet152'], dest='backbone')
     parser.add_argument('--metric', type=str, dest='metric', default='adacos', choices=['adacos', 'arcface', 'sphereface', 'cosface', 'okatani', 'softmax'])
     parser.add_argument('--num_features', default=512, type=int, help='dimention of embedded features', dest='num_features')
-    parser.add_argument('-s', '--svalue', metavar='PS', type=float, nargs='?', default=None,
-                        help='Fixed Parameter s', dest='svalue') #指定しなけれbばｓは学習で自動探索、指定すればｓは固定
+    parser.add_argument('--svalue',  type=float, nargs='?', default=None,
+                        help='Fixed Parameter s. Applicable to ArcFace,SphereFace,CosFace', dest='svalue')
+    parser.add_argument('--mvalue',  type=float, nargs='?', default=None,
+                        help='Fixed Parameter m. Applicable to AdaCos,ArcFace,SphereFace,CosFace', dest='mvalue')
     
     return parser.parse_args()
 
@@ -322,16 +324,20 @@ if __name__ == '__main__':
 
     if args.metric == 'adacos':
         metric_fc = metrics.AdaCos(
-        num_features=args.num_features, num_classes=numclass)
+        num_features=args.num_features, num_classes=numclass) if args.mvalue==None else metrics.AdaCos(
+        num_features=args.num_features, num_classes=numclass, m=args.mvalue) #論文ではm=0
     elif args.metric == 'arcface':
         metric_fc = metrics.ArcFace(
-        num_features=args.num_features, num_classes=numclass)
+        num_features=args.num_features, num_classes=numclass) if args.mvalue==None and args.svalue==None else metrics.ArcFace(
+        num_features=args.num_features, num_classes=numclass, s=args.svalue, m=args.mvalue)
     elif args.metric == 'sphereface':
         metric_fc = metrics.SphereFace(
-        num_features=args.num_features, num_classes=numclass)
+        num_features=args.num_features, num_classes=numclass) if args.mvalue==None and args.svalue==None else metrics.SphereFace(
+        num_features=args.num_features, num_classes=numclass, s=args.svalue, m=args.mvalue)
     elif args.metric == 'cosface':
         metric_fc = metrics.CosFace(
-        num_features=args.num_features, num_classes=numclass)
+        num_features=args.num_features, num_classes=numclass) if args.mvalue==None and args.svalue==None else metrics.CosFace(
+        num_features=args.num_features, num_classes=numclass, s=args.svalue, m=args.mvalue)
     elif args.metric == 'okatani':
         metric_fc = metrics.Okatani(
         num_features=args.num_features, num_classes=numclass)
