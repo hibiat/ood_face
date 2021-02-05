@@ -29,10 +29,10 @@ from classify import classify
 from tools import makeumap
 
 
-#dir_train = '/home/keisoku/work/ood2/data/oct/minidata' #クラスごとに分かれたフォルダがある場所
-#dir_test =  dir_train
-dir_train = '/home/keisoku/work/ood2/data/oct/train'
-dir_test = '/home/keisoku/work/ood2/data/oct/test'
+dir_train = '/home/keisoku/work/ood2/data/oct/minidata' #クラスごとに分かれたフォルダがある場所
+dir_test =  dir_train
+# dir_train = '/home/keisoku/work/ood2/data/oct/train'
+# dir_test = '/home/keisoku/work/ood2/data/oct/test'
 train_folders = 'oct_ind1' #folder2labelで既知クラス扱いにするフォルダ（train用）
 test_ind_folders = 'oct_ind1' #既知クラス扱いにするフォルダ（テスト用）
 test_ood_folders = 'oct_ood1' #未知クラス扱いにするフォルダ（テスト用）
@@ -90,7 +90,6 @@ def train_net(net,
     ''')
 
     best_test = 0.0 #既知vs未知クラスの分類精度が最良のもの
-    best_test2 = 0.0 #既知内精度が最良のもの
     for epoch in range(epochs):
         #for param_group in optimizer.param_groups:
         #    logging.info('LR:{}'.format(param_group['lr']))
@@ -169,7 +168,12 @@ def train_net(net,
                         writer_csv.writerow(data)
                     
                     #umapのグラフ作成
-                    makeumap.makeumap(numclass, args.num_features, feature_train, true_label_train, feature_test_ind, true_label_test_ind, feature_test_ood, true_label_test_ood, get_args().savedir)
+                    makeumap.makeumap(numclass, args.num_features, 
+                                        feature_train, true_label_train, 
+                                        feature_test_ind, true_label_test_ind, 
+                                        feature_test_ood, true_label_test_ood, 
+                                        get_args().savedir,
+                                        test_ind_result, test_ood_result)
                     
                     #学習済みモデル保存
                     torch.save(net.state_dict(),

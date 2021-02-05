@@ -38,7 +38,7 @@ def makeumapfitter(f, label):
     
     return fitter, f_embeded
 
-def makeumap(numclass, fsize, train_f, train_label, test_ind_f, test_ind_label, test_ood_f, test_ood_label, savedir, is_saveeach=False):
+def makeumap(numclass, fsize, train_f, train_label, test_ind_f, test_ind_label, test_ood_f, test_ood_label, savedir, test_ind_result, test_ood_result):
     
     #Train dataの一部(ランダム選択)でUMAPの次元削減器を作成
     if n_components != fsize:
@@ -78,54 +78,17 @@ def makeumap(numclass, fsize, train_f, train_label, test_ind_f, test_ind_label, 
         cmap = ListedColormap(['blue','green',  'red', 'magenta', 'black'])
         cmap_mild = ListedColormap(['lightblue','lightgreen',  'lightsalmon', 'violet', 'black'])
 
-    #それぞれ独立の描写
-    if is_saveeach:
-        #train
-        fig, ax = plt.subplots(1, figsize=(8.0, 6.0))
-        plt.scatter(train_f_embeded[:,0], train_f_embeded[:,1], s=0.3, c=train_label, cmap=cmap_mild, vmin=-0.5, vmax=numclass+1-0.5, alpha=0.01)
-        #plt.scatter(w_embeded[:,0], w_embeded[:,1], s=30.0, c=np.arange(numclass), marker='*', cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5, alpha=1.0)
-        plt.xlim(xmin, xmax)
-        plt.ylim(ymin, ymax)
-        #plt.setp(ax, xticks=[], yticks=[])
-        cbar = plt.colorbar(boundaries=np.arange(numclass+2)-0.5)
-        cbar.set_ticks(np.arange(numclass+1))
-        legend = ['class' + str(i) for i in range(numclass)]
-        legend.append('Unknown')
-        cbar.set_ticklabels(legend)
-        plt.title('Train Data Embedded via UMAP')
-        fig.savefig(os.path.join(savedir, "out_train.png"), format='png', dpi=600)
-        #test IND
-        fig, ax = plt.subplots(1, figsize=(8.0, 6.0))
-        plt.scatter(test_ind_f_embeded[:,0], test_ind_f_embeded[:,1], s=0.3, c=test_ind_label, cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5, alpha=1.0)
-        plt.xlim(xmin, xmax)
-        plt.ylim(ymin, ymax)
-        #plt.setp(ax, xticks=[], yticks=[])
-        cbar = plt.colorbar(boundaries=np.arange(numclass+2)-0.5)
-        cbar.set_ticks(np.arange(numclass+1))
-        legend = ['class' + str(i) for i in range(numclass)]
-        legend.append('Unknown')
-        cbar.set_ticklabels(legend)
-        plt.title('Test [Known] Data Embedded via UMAP')
-        fig.savefig(os.path.join(savedir, "out_test_ind.png"), format='png', dpi=600)
-        #test OOD
-        fig, ax = plt.subplots(1, figsize=(8.0, 6.0))
-        plt.scatter(test_ood_f_embeded[:,0], test_ood_f_embeded[:,1], s=3.0, c=np.ones(n_test_ood, dtype=np.int)*numclass, marker='x', cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5, alpha=1.0)
-        plt.xlim(xmin, xmax)
-        plt.ylim(ymin, ymax)
-        #plt.setp(ax, xticks=[], yticks=[])
-        cbar = plt.colorbar(boundaries=np.arange(numclass+2)-0.5)
-        cbar.set_ticks(np.arange(numclass+1))
-        legend = ['class' + str(i) for i in range(numclass)]
-        legend.append('Unknown')
-        cbar.set_ticklabels(legend)
-        plt.title('Test [UNknown] Data Embedded via UMAP')
-        fig.savefig(os.path.join(savedir, "out_test_ood.png"), format='png', dpi=600)
-
 
     #学習データと既知を1枚に統合
     fig, ax = plt.subplots(1, figsize=(8.0, 6.0))
     plt.scatter(train_f_embeded[:,0], train_f_embeded[:,1], s=120.0, c=train_label, marker='.', cmap=cmap_mild, vmin=-0.5, vmax=numclass+1-0.5, alpha=0.01) #学習データは薄く、大きめに表示
-    plt.scatter(test_ind_f_embeded[:,0], test_ind_f_embeded[:,1], s=0.3, c=test_ind_label, cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5, alpha=1.0)
+    oodindex = np.asarray(test_ind_result[:,2], dtype=np.int)==1 #OODと判定された画像のインデックス
+    if np.sum(oodindex) > 0:
+        plt.scatter(test_ind_f_embeded[oodindex, 0], test_ind_f_embeded[oodindex, 1], s=5.0, marker='x',c=test_ind_label[oodindex], cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5,  alpha=1.0) 
+    indindex = np.asarray(test_ind_result[:,2], dtype=np.int)==0 #INDと判定された画像のインデックス
+    if np.sum(indindex) > 0:
+        plt.scatter(test_ind_f_embeded[indindex, 0], test_ind_f_embeded[indindex, 1], s=5.0, marker='.',c=test_ind_label[indindex], cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5,  alpha=1.0) 
+    
     plt.xlim(xmin, xmax)
     plt.ylim(ymin, ymax)
     #plt.setp(ax, xticks=[], yticks=[])
@@ -142,7 +105,13 @@ def makeumap(numclass, fsize, train_f, train_label, test_ind_f, test_ind_label, 
     #学習データと未知を1枚に統合
     fig, ax = plt.subplots(1, figsize=(8.0, 6.0))
     plt.scatter(train_f_embeded[:,0], train_f_embeded[:,1], s=120.0, c=train_label, marker='.', cmap=cmap_mild, vmin=-0.5, vmax=numclass+1-0.5, alpha=0.01) #学習データは薄く、大きめに表示
-    plt.scatter(test_ood_f_embeded[:,0], test_ood_f_embeded[:,1], s=3.0, c=np.ones(test_ood_f.shape[0], dtype=np.int)*numclass, marker=',', cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5, alpha=1.0)
+    oodindex = np.asarray(test_ood_result[:,2], dtype=np.int)==1 #OODと判定された画像のインデックス
+    if np.sum(oodindex) > 0:
+        plt.scatter(test_ood_f_embeded[oodindex, 0], test_ood_f_embeded[oodindex, 1], s=5.0, marker='x', c=np.ones(np.sum(oodindex), dtype=np.int)*numclass, cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5, alpha=1.0) 
+    indindex = np.asarray(test_ood_result[:,2], dtype=np.int)==0 #INDと判定された画像のインデックス
+    if np.sum(indindex) > 0:
+        plt.scatter(test_ood_f_embeded[indindex, 0], test_ood_f_embeded[indindex, 1], s=5.0, marker='.', c=np.ones(np.sum(indindex), dtype=np.int)*numclass, cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5, alpha=1.0) 
+    
     plt.xlim(xmin, xmax)
     plt.ylim(ymin, ymax)
     #plt.setp(ax, xticks=[], yticks=[])
@@ -159,8 +128,19 @@ def makeumap(numclass, fsize, train_f, train_label, test_ind_f, test_ind_label, 
     #全体のデータを１枚に統合
     fig, ax = plt.subplots(1, figsize=(8.0, 6.0))
     plt.scatter(train_f_embeded[:,0], train_f_embeded[:,1], s=120.0, c=train_label, marker='.', cmap=cmap_mild, vmin=-0.5, vmax=numclass+1-0.5, alpha=0.01) #学習データは薄く、大きめに表示
-    plt.scatter(test_ind_f_embeded[:,0], test_ind_f_embeded[:,1], s=0.3, c=test_ind_label, cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5, alpha=1.0)
-    plt.scatter(test_ood_f_embeded[:,0], test_ood_f_embeded[:,1], s=3.0, c=np.ones(test_ood_f.shape[0], dtype=np.int)*numclass, marker=',', cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5, alpha=1.0)
+    oodindex = np.asarray(test_ind_result[:,2], dtype=np.int)==1 #OODと判定された画像のインデックス
+    if np.sum(oodindex) > 0:
+        plt.scatter(test_ind_f_embeded[oodindex, 0], test_ind_f_embeded[oodindex, 1], s=5.0, marker='x',c=test_ind_label[oodindex], cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5,  alpha=1.0) 
+    indindex = np.asarray(test_ind_result[:,2], dtype=np.int)==0 #INDと判定された画像のインデックス
+    if np.sum(indindex) > 0:
+        plt.scatter(test_ind_f_embeded[indindex, 0], test_ind_f_embeded[indindex, 1], s=5.0, marker='.',c=test_ind_label[indindex], cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5,  alpha=1.0) 
+    oodindex = np.asarray(test_ood_result[:,2], dtype=np.int)==1 #OODと判定された画像のインデックス
+    if np.sum(oodindex) > 0:
+        plt.scatter(test_ood_f_embeded[oodindex, 0], test_ood_f_embeded[oodindex, 1], s=5.0, marker='x', c=np.ones(np.sum(oodindex), dtype=np.int)*numclass, cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5, alpha=1.0) 
+    indindex = np.asarray(test_ood_result[:,2], dtype=np.int)==0 #INDと判定された画像のインデックス
+    if np.sum(indindex) > 0:
+        plt.scatter(test_ood_f_embeded[indindex, 0], test_ood_f_embeded[indindex, 1], s=5.0, marker='.', c=np.ones(np.sum(indindex), dtype=np.int)*numclass, cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5, alpha=1.0) 
+    
     plt.xlim(xmin, xmax)
     plt.ylim(ymin, ymax)
     #plt.setp(ax, xticks=[], yticks=[])
