@@ -32,9 +32,9 @@ dir_train = '/home/keisoku/work/ood2/data/oct/train'
 dir_test = '/home/keisoku/work/ood2/data/oct/test'
 
 #学習済みモデル
-trainedmodel = "/home/keisoku/work/ood_face/src/adacos_numfeature2/CP_best.pth"
+trainedmodel = "/home/keisoku/work/ood_face/src/softmax_numfeature2/CP_best2.pth"
 backbone = 'resnet18'
-metric = 'adacos'
+metric = 'softmax'
 svalue = None #autoならNone,固定値ならその値を入れる
 pretrain = True #pretrainありならTrueにする
 fsize = 2 #512 #抽出する特徴量のサイズ
@@ -42,7 +42,7 @@ in_channels = 3 #入力チャンネル数
 numclass = 3 #既知クラスの個数
 
 #保存場所。モデルで判定したnpyもここに保存（２回以降の実行ではモデル判定をスキップできる）.モデルか使用データを変えた場合はnpyを消すこと。
-savedir = os.path.join(os.path.dirname(trainedmodel), 'umap1')
+savedir = os.path.join(os.path.dirname(trainedmodel), 'umap2')
 
 #---UMAP用パラメータ----
 n_neighbors = 200 #15

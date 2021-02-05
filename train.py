@@ -25,12 +25,11 @@ from tensorboardX import SummaryWriter
 
 from network import resnet_face, metrics
 from utils.customDataset import oct
-from utils.savefile import saveconf_ood
-from predict import predict
-from tools import detailauc
+from classify import classify
+from tools import makeumap
 
 
-#ir_train = '/home/keisoku/work/ood2/data/oct/minidata' #クラスごとに分かれたフォルダがある場所
+#dir_train = '/home/keisoku/work/ood2/data/oct/minidata' #クラスごとに分かれたフォルダがある場所
 #dir_test =  dir_train
 dir_train = '/home/keisoku/work/ood2/data/oct/train'
 dir_test = '/home/keisoku/work/ood2/data/oct/test'
@@ -136,148 +135,52 @@ def train_net(net,
                     writer.add_scalar('Loss_epoch/train', epoch_loss, epoch)
 
             if phase == 'test':
-                #既知クラス判定
-                avg_test_loss, fvalue, accuracy, filename_all_ind, true_label_all_ind, pred_label_softmax_all_ind, pred_theta_all_ind, pred_scale_all_ind = predict(
-                                                                                                                        net,
-                                                                                                                        metric_fc,
-                                                                                                                        param_s,
-                                                                                                                        test_ind_loader, 
-                                                                                                                        device, 
-                                                                                                                        n_test_ind, 
-                                                                                                                        numclass, 
-                                                                                                                        isood=False,
-                                                                                                                        criterion=criterion                                                                                                                      
-                                                                                                                        )
+                fvalue_indood, accuracy_indood, accuracy_inind, test_ind_result, test_ood_result, feature_train, true_label_train,feature_test_ind, true_label_test_ind, feature_test_ood, true_label_test_ood = classify(
+                        device, net, numclass, train_loader, test_ind_loader, test_ood_loader, n_train, n_test_ind, n_test_ood, 
+                        prune_rate=args.prune_rate, num_features=args.num_features, thr_dist=args.thr_dist, thr_minsamplenum=args.thr_minsamplenum
+                        )
                 
-                writer.add_scalar('Loss_epoch/test', avg_test_loss, epoch) 
-                writer.add_scalar('inIND/F_epoch', fvalue, epoch) 
-                writer.add_scalar('inIND/Accuracy_epoch', accuracy, epoch) 
-                writer.add_scalar('ParamS_mean/IND', np.mean(pred_scale_all_ind), epoch) 
-                #未知クラス判定
-                _, _, _, filename_all_ood, true_label_all_ood, pred_label_softmax_all_ood, pred_theta_all_ood, pred_scale_all_ood = predict(
-                                                                                                                    net, 
-                                                                                                                    metric_fc,
-                                                                                                                    param_s,
-                                                                                                                    test_ood_loader, 
-                                                                                                                    device, 
-                                                                                                                    n_test_ood, 
-                                                                                                                    numclass, 
-                                                                                                                    isood=True,
-                                                                                                                    criterion=criterion
-                                                                                                                    )
-                writer.add_scalar('ParamS_mean/OOD', np.mean(pred_scale_all_ood), epoch) 
-                #未知、既知クラス間の2クラス判定精度
-                _, _, _, _, auc_oodind = detailauc.analyze_indood(pred_label_softmax_all_ind, pred_label_softmax_all_ood)
-                writer.add_scalar('OODvsIND/AUC_epoch', auc_oodind, epoch) 
+                writer.add_scalar('Performance/F_INDOOD', fvalue_indood, epoch) 
+                writer.add_scalar('Performance/Accuracy_INDOOD', accuracy_indood, epoch) 
+                writer.add_scalar('Performance/Accuracy_inIND', accuracy_inind, epoch)
+                logging.info('[Test] F_INDOOD: {:.3f}, Accuracy_INDOOD: {:.3f}, Accuracy_inIND:{:.3f}'.format(fvalue_indood, accuracy_indood, accuracy_inind))
 
-                logging.info('Test loss: {:.4f}, inIND_fvalue: {:.4f}, inIND_accuracy:{:.3f}, OODvsIND_AUC:{:.4f}'.format(avg_test_loss, fvalue, accuracy, auc_oodind))
-
-
-                if best_test < auc_oodind: #未知クラスとの分類精度
-                    best_test = auc_oodind
+                if best_test < fvalue_indood:
                     logging.info(f'Best model OOdvsIND updated (epoch {epoch + 1})!')
 
-                    #既知クラスの結果保存
-                    #ファイル名、正解、確信度, cos類似度、係数sをcsv保存
-                    savefilename_ind = os.path.join(get_args().savedir,'CP_best_ind') + '_results.csv'                   
-                    saveconf_ood(numclass, filename_all_ind, true_label_all_ind, pred_label_softmax_all_ind, pred_theta_all_ind, pred_scale_all_ind, savefilename_ind)
-                    #確信度の最大値のヒストグラムを表示
-                    hist_value = np.max(pred_label_softmax_all_ind, axis=1)
-                    counts, limits = np.histogram(hist_value, bins=20, range=(-1,1))
-                    sum_sq = hist_value.dot(hist_value)
-                    writer.add_histogram_raw(
-                        tag='OODMaxConf/test_IND',
-                        min=hist_value.min(),
-                        max=hist_value.max(),
-                        num=len(hist_value),
-                        sum=hist_value.sum(),
-                        sum_squares=sum_sq,
-                        bucket_limits=limits[1:].tolist(),
-                        bucket_counts=counts.tolist(),
-                        global_step=epoch)
-
-
-                    #OODクラスの結果保存
-                    #ファイル名、正解、確信度, cos類似度、係数sをcsv保存
-                    savefilename_ood = os.path.join(get_args().savedir,'CP_best_ood') +'_results.csv'                 
-                    saveconf_ood(numclass, filename_all_ood, true_label_all_ood, pred_label_softmax_all_ood, pred_theta_all_ood, pred_scale_all_ood, savefilename_ood)                   
-                    #OODの確信度平均を表示
-                    ave_ood_conf = np.mean(pred_label_softmax_all_ood)
-                    writer.add_scalar('OODAveConf_epoch/test_ood', ave_ood_conf, epoch)                   
-                    #確信度の最大値のヒストグラムを表示
-                    hist_value = np.max(pred_label_softmax_all_ood, axis=1)
-                    counts, limits = np.histogram(hist_value, bins=20, range=(-1,1))
-                    sum_sq = hist_value.dot(hist_value)
-                    writer.add_histogram_raw(
-                        tag='OODMaxConf/test_OOD',
-                        min=hist_value.min(),
-                        max=hist_value.max(),
-                        num=len(hist_value),
-                        sum=hist_value.sum(),
-                        sum_squares=sum_sq,
-                        bucket_limits=limits[1:].tolist(),
-                        bucket_counts=counts.tolist(),
-                        global_step=epoch)
-                    
-                    #未知vs既知クラスの指標評価,既知クラス内の指標評価
-                    #グラフ作成
-                    _, auc_inside_ind, _, _ = detailauc.calc(numclass, savefilename_ind, savefilename_ood, os.path.join(get_args().savedir,'eval.png'))
-                    #保存
-                    savefilename = os.path.join(get_args().savedir,'saveinfo.csv')  
+                    #結果保存
+                    header = ['filename', 'True label', 'Pred(OOD=1,IND=0)', 'Pred(inIND)']
+                    savefilename = os.path.join(get_args().savedir,'CP_best_ind') + '_results.csv'
+                    with open(savefilename, 'w') as f:
+                        writer_csv = csv.writer(f)
+                        writer_csv.writerow(header)
+                        writer_csv.writerows(test_ind_result)
+                    savefilename = os.path.join(get_args().savedir,'CP_best_ood') + '_results.csv'
+                    with open(savefilename, 'w') as f:
+                        writer_csv = csv.writer(f)
+                        writer_csv.writerow(header)
+                        writer_csv.writerows(test_ood_result)
+                    savefilename = os.path.join(get_args().savedir,'CP_bestinfo.csv')  
                     with open(savefilename, mode='w', ) as f:
                         writer_csv = csv.writer(f)
-                        header = ['epoch',  'OODvsIND_AUC','inIND_accuracy']
-                        header.extend(['inIND_AUC_cls' + str(i) for i in range(numclass)])
+                        header = ['epoch',  'Fvalue(INDvsOOD)', 'Accuracy(INDvsOOD)', 'Accuracy(inIND)']
                         writer_csv.writerow(header)
-                        data = [epoch+1, auc_oodind, accuracy]
-                        data.extend(auc_inside_ind)
+                        data = [epoch + 1, fvalue_indood, accuracy_indood, accuracy_inind]
                         writer_csv.writerow(data)
+                    
+                    #umapのグラフ作成
+                    makeumap.makeumap(numclass, args.num_features, feature_train, true_label_train, feature_test_ind, true_label_test_ind, feature_test_ood, true_label_test_ood, get_args().savedir)
                     
                     #学習済みモデル保存
                     torch.save(net.state_dict(),
                            os.path.join(get_args().savedir, 'CP_best.pth'))
 
-
-                if best_test2 < accuracy: #既知クラス内の判定精度
-                    best_test2 = accuracy
-                    logging.info(f'Best model inIND updated (epoch {epoch + 1})!')
-
-                    #既知クラスの結果保存
-                    #ファイル名、正解、確信度, cos類似度、係数sをcsv保存
-                    savefilename_ind = os.path.join(get_args().savedir,'CP_best_ind') + '_results2.csv'                   
-                    saveconf_ood(numclass, filename_all_ind, true_label_all_ind, pred_label_softmax_all_ind, pred_theta_all_ind, pred_scale_all_ind, savefilename_ind)
-
-                    #OODクラスの結果保存
-                    #ファイル名、正解、確信度, cos類似度、係数sをcsv保存
-                    savefilename_ood = os.path.join(get_args().savedir,'CP_best_ood') +'_results2.csv'                 
-                    saveconf_ood(numclass, filename_all_ood, true_label_all_ood, pred_label_softmax_all_ood, pred_theta_all_ood, pred_scale_all_ood, savefilename_ood)                   
-                
-                    #未知vs既知クラスの指標評価,既知クラス内の指標評価
-                    #グラフ作成
-                    _, auc_inside_ind, _, _  = detailauc.calc(numclass, savefilename_ind, savefilename_ood, os.path.join(get_args().savedir,'eval2.png'))
-                    #保存
-                    savefilename = os.path.join(get_args().savedir,'saveinfo2.csv')  
-                    with open(savefilename, mode='w', ) as f:
-                        writer_csv = csv.writer(f)
-                        header = ['epoch',  'OODvsIND_AUC','inIND_accuracy']
-                        header.extend(['inIND_AUC_cls' + str(i) for i in range(numclass)])
-                        writer_csv.writerow(header)
-                        data = [epoch+1, auc_oodind, accuracy]
-                        data.extend(auc_inside_ind)
-                        writer_csv.writerow(data)
-                        
-              
-                    #学習済みモデル保存
-                    torch.save(net.state_dict(),
-                           os.path.join(get_args().savedir, 'CP_best2.pth'))
-                    
             if save_cp:
                 torch.save(net.state_dict(),
                            os.path.join(get_args().savedir, f'CP_epoch{epoch + 1}.pth'))
                 logging.info(f'Checkpoint {epoch + 1} saved !')
 
             
-
     writer.export_scalars_to_json("./tensorboard_writer.json")
     writer.close()
 
@@ -305,6 +208,13 @@ def get_args():
                         help='Fixed Parameter s. Applicable to ArcFace,SphereFace,CosFace', dest='svalue')
     parser.add_argument('--mvalue',  type=float, nargs='?', default=None,
                         help='Fixed Parameter m. Applicable to AdaCos,ArcFace,SphereFace,CosFace', dest='mvalue')
+    parser.add_argument('--prune_rate',  type=float, nargs='?', default=1.0,
+                        help='Rate of pruning training dataset for classification', dest='prune_rate')
+    parser.add_argument('--thr_dist',  type=float, nargs='?', default=0.01,
+                        help='Distance for determining OOD or not', dest='thr_dist')
+    parser.add_argument('--thr_minsamplenum',  type=int, nargs='?', default=10,
+                        help='Min samples to say IND in the neighbor.', dest='thr_minsamplenum')
+                         
     
     return parser.parse_args()
 
