@@ -13,8 +13,9 @@ from tqdm import tqdm
 
 def pred(phase, device, net, num_features, loader, n_data, prune_rate=None):
     net.eval()
-    f = np.zeros([n_data, num_features]) if prune_rate is None else np.zeros([math.floor(n_data * prune_rate), num_features]) #特徴量ｆ
-    label = np.zeros(n_data, dtype=np.int)  if prune_rate is None else np.zeros(math.floor(n_data * prune_rate), dtype=np.int)  #正解ラベル
+    datalen = n_data if prune_rate is None else math.floor(n_data * prune_rate)
+    f = np.zeros([datalen, num_features])  #特徴量ｆ
+    label = np.zeros(datalen, dtype=np.int)   #正解ラベル
     fname = [] #ファイル名。list
     step = 0
     with torch.no_grad():
@@ -23,14 +24,18 @@ def pred(phase, device, net, num_features, loader, n_data, prune_rate=None):
             for batch in loader:
                 imgs = batch['image']
                 imgs = imgs.to(device=device, dtype=torch.float32)
-                label[step:step+bsize]  = batch['label'].cpu().numpy() #onehotでない。正解クラスの数字単品。
-                filenames = batch['filename']
-
                 feature = net(imgs)
-                f[step:step+bsize,:] = feature.cpu().numpy()
-                fname.extend(filenames)
+                if step+bsize > datalen:
+                    label[step : datalen]  = batch['label'].cpu().numpy()[0:datalen-step] #onehotでない。正解クラスの数字単品。
+                    f[step : datalen,:] = feature.cpu().numpy()[0:datalen-step]
+                else:
+                    label[step:step+bsize]  = batch['label'].cpu().numpy() 
+                    f[step:step+bsize,:] = feature.cpu().numpy()
+                
+                filenames = batch['filename']
+                fname.extend(filenames)  
 
-                step += imgs.shape[0]
+                step += bsize
                 if prune_rate is not None and step + 1 > math.floor(n_data * prune_rate):
                     break
                 pbar.update(bsize)
