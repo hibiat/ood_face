@@ -31,10 +31,10 @@ from tools import makeumap
 
 dir_train = '/home/keisoku/work/ood2/data/oct/minidata' #クラスごとに分かれたフォルダがある場所
 dir_test =  dir_train
-# dir_train = '/home/keisoku/work/ood2/data/oct/train'
-# dir_test = '/home/keisoku/work/ood2/data/oct/test'
-train_folders = 'oct_ind1' #folder2labelで既知クラス扱いにするフォルダ（train用）
-test_ind_folders = 'oct_ind1' #既知クラス扱いにするフォルダ（テスト用）
+dir_train = '/home/keisoku/work/ood2/data/oct/train'
+dir_test = '/home/keisoku/work/ood2/data/oct/test'
+#train_folders = 'oct_ind1' #folder2labelで既知クラス扱いにするフォルダ（train用）
+#test_ind_folders = 'oct_ind1' #既知クラス扱いにするフォルダ（テスト用）
 test_ood_folders = 'oct_ood1' #未知クラス扱いにするフォルダ（テスト用）
 numclass = 3 #既知クラスの個数
 in_channels = 3 #入力チャンネル数
@@ -90,6 +90,7 @@ def train_net(net,
     ''')
 
     best_test = 0.0 #既知vs未知クラスの分類精度が最良のもの
+    thr_dist = 1.0 #距離閾値の初期値
     for epoch in range(epochs):
         #for param_group in optimizer.param_groups:
         #    logging.info('LR:{}'.format(param_group['lr']))
@@ -134,15 +135,52 @@ def train_net(net,
                     writer.add_scalar('Loss_epoch/train', epoch_loss, epoch)
 
             if phase == 'test':
-                fvalue_indood, accuracy_indood, accuracy_inind, test_ind_result, test_ood_result, feature_train, true_label_train,feature_test_ind, true_label_test_ind, feature_test_ood, true_label_test_ood = classify(
+                confm_indood, fvalue_indood, accuracy_indood, accuracy_inind, test_ind_result, test_ood_result, feature_train, true_label_train,feature_test_ind, true_label_test_ind, feature_test_ood, true_label_test_ood = classify(
                         device, net, numclass, train_loader, test_ind_loader, test_ood_loader, n_train, n_test_ind, n_test_ood, 
-                        prune_rate=args.prune_rate, num_features=args.num_features, thr_dist=args.thr_dist, thr_minsamplenum=args.thr_minsamplenum
+                        prune_rate=args.prune_rate, num_features=args.num_features, thr_dist= thr_dist, thr_minsamplenum=args.thr_minsamplenum
                         )
                 
-                writer.add_scalar('Performance/F_INDOOD', fvalue_indood, epoch) 
-                writer.add_scalar('Performance/Accuracy_INDOOD', accuracy_indood, epoch) 
-                writer.add_scalar('Performance/Accuracy_inIND', accuracy_inind, epoch)
-                logging.info('[Test] F_INDOOD: {:.3f}, Accuracy_INDOOD: {:.3f}, Accuracy_inIND:{:.3f}'.format(fvalue_indood, accuracy_indood, accuracy_inind))
+                writer.add_scalar('0_Performance/F_INDOOD', fvalue_indood, epoch) 
+                writer.add_scalar('0_Performance/Accuracy_INDOOD', accuracy_indood, epoch) 
+                writer.add_scalar('0_Performance/Accuracy_inIND', accuracy_inind, epoch)
+                
+                #距離閾値の探索
+                dist_ind2train = np.asarray(test_ind_result[:,4:4+args.thr_minsamplenum], dtype=np.float)
+                dist_ood2train = np.asarray(test_ood_result[:,4:4+args.thr_minsamplenum], dtype=np.float)
+                med_dist_ind2train = np.median(dist_ind2train)
+                med_dist_ood2train = np.median(dist_ood2train)
+                thr_dist  = np.mean([med_dist_ind2train, med_dist_ood2train])
+                writer.add_scalar('1_distthr', thr_dist, epoch) 
+                #確信度の最大値のヒストグラムを表示
+                hist_value = np.ravel(dist_ind2train)
+                counts, limits = np.histogram(hist_value, bins=20)
+                sum_sq = hist_value.dot(hist_value)
+                writer.add_histogram_raw(
+                    tag='Dist2train/fromIND',
+                    min=hist_value.min(),
+                    max=hist_value.max(),
+                    num=len(hist_value),
+                    sum=hist_value.sum(),
+                    sum_squares=sum_sq,
+                    bucket_limits=limits[1:].tolist(),
+                    bucket_counts=counts.tolist(),
+                    global_step=epoch)
+
+                hist_value = np.ravel(dist_ood2train)
+                counts, limits = np.histogram(hist_value, bins=20)
+                sum_sq = hist_value.dot(hist_value)
+                writer.add_histogram_raw(
+                    tag='Dist2train/fromOOD',
+                    min=hist_value.min(),
+                    max=hist_value.max(),
+                    num=len(hist_value),
+                    sum=hist_value.sum(),
+                    sum_squares=sum_sq,
+                    bucket_limits=limits[1:].tolist(),
+                    bucket_counts=counts.tolist(),
+                    global_step=epoch)
+                
+                logging.info('[Test] F_INDOOD: {:.3f}, Accuracy_INDOOD: {:.3f}, Accuracy_inIND:{:.3f}, Dist:(IND){:.3f},(OOD){:.3f},(Ave){:.3f}'.format(fvalue_indood, accuracy_indood, accuracy_inind,med_dist_ind2train, med_dist_ood2train, thr_dist))
 
                 if best_test < fvalue_indood:
                     logging.info(f'Best model OOdvsIND updated (epoch {epoch + 1})!')
@@ -166,6 +204,10 @@ def train_net(net,
                         writer_csv.writerow(header)
                         data = [epoch + 1, fvalue_indood, accuracy_indood, accuracy_inind]
                         writer_csv.writerow(data)
+                        writer_csv.writerow(['Conf Matrix',  'Pred(OOD)', 'Pred(IND)'])
+                        writer_csv.writerow(['True(OOD)', confm_indood[0,0], confm_indood[0,1]])
+                        writer_csv.writerow(['True(IND)', confm_indood[1,0], confm_indood[1,1]])
+                       
                     
                     #umapのグラフ作成
                     makeumap.makeumap(numclass, args.num_features, 
@@ -214,8 +256,6 @@ def get_args():
                         help='Fixed Parameter m. Applicable to AdaCos,ArcFace,SphereFace,CosFace', dest='mvalue')
     parser.add_argument('--prune_rate',  type=float, nargs='?', default=1.0,
                         help='Rate of pruning training dataset for classification', dest='prune_rate')
-    parser.add_argument('--thr_dist',  type=float, nargs='?', default=0.01,
-                        help='Distance for determining OOD or not', dest='thr_dist')
     parser.add_argument('--thr_minsamplenum',  type=int, nargs='?', default=10,
                         help='Min samples to say IND in the neighbor.', dest='thr_minsamplenum')
                          

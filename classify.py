@@ -51,7 +51,9 @@ def classify(device, net, numclass, train_loader, test_ind_loader, test_ood_load
     #test(既知クラス)の判定
     pred_indood_test_ind = np.zeros(n_test_ind, dtype=np.long)  #既知か未知かの判定結果。未知なら1、既知なら0が入る
     pred_inind_test_ind = np.zeros(n_test_ind, dtype=np.long)  #既知判定なら、既知のどのクラスか。各クラスの数字が入る
-    
+    ndistsave = 20
+    neighbor_dist_ind_forsave = np.zeros((n_test_ind,ndistsave), dtype=np.float) #学習データの距離を近い順に記録
+
     for i in range(n_test_ind):
         testsample = feature_test_ind[i,:]
         dist = np.sqrt(LA.norm(np.ones((feature_train.shape[0], 1)) * testsample - feature_train, axis=1))
@@ -59,6 +61,7 @@ def classify(device, net, numclass, train_loader, test_ind_loader, test_ood_load
         neighbor_index = sorted_index[0:thr_minsamplenum] #距離が短いthr_minsamplenum個
         neighbor_dist = dist[neighbor_index] 
         neighbor_label = true_label_train[neighbor_index]
+        neighbor_dist_ind_forsave[i,:] = dist[sorted_index[0:ndistsave]]
         
         if np.sum(neighbor_dist < thr_dist) == thr_minsamplenum:
             pred_indood_test_ind[i] = 0 #既知と判定
@@ -71,15 +74,18 @@ def classify(device, net, numclass, train_loader, test_ind_loader, test_ood_load
     #test(未知クラス)の判定
     pred_indood_test_ood = np.zeros(n_test_ood, dtype=np.long)  #既知か未知かの判定結果。未知なら1、既知なら0が入る
     pred_inind_test_ood = np.zeros(n_test_ood, dtype=np.long)  #既知判定なら、既知のどのクラスか。各クラスの数字が入る
-    
+    ndistsave = 20
+    neighbor_dist_ood_forsave = np.zeros((n_test_ood,ndistsave), dtype=np.float) #学習データの距離を近い順に記録
+
     for i in range(n_test_ood):
         testsample = feature_test_ood[i,:]
         dist = np.sqrt(LA.norm(np.ones((feature_train.shape[0], 1)) * testsample - feature_train, axis=1))
         sorted_index = np.argsort(dist) #距離が短いもの順
-        neighbor_index = sorted_index[0]
+        neighbor_index = sorted_index[0:thr_minsamplenum]
         neighbor_dist = dist[neighbor_index]
         neighbor_label = true_label_train[neighbor_index]
-
+        neighbor_dist_ood_forsave[i,:] = dist[sorted_index[0:ndistsave]]
+        
         if np.sum(neighbor_dist < thr_dist) == thr_minsamplenum:
             pred_indood_test_ood[i] = 0 #既知と判定
             clses, counts = np.unique(neighbor_label, return_counts=True)
@@ -108,15 +114,24 @@ def classify(device, net, numclass, train_loader, test_ind_loader, test_ood_load
     else:
         fvalue_indood = 0.0
 
+    confm_indood = np.array([[ood_ok, ood_ng],[ind_ng, ind_ok]])
     accuracy_indood = (ind_ok + ood_ok)/(n_test_ind + n_test_ood)
 
     #(2)既知と判定された正解が既知のサンプルのうち、正しく判定できた割合
     accuracy_inind =  0.0 if np.sum(pred_inind_test_ind != -1)==0 else np.sum(pred_inind_test_ind ==true_label_test_ind)/ np.sum(pred_inind_test_ind != -1)
 
-    test_ind_result = np.hstack([np.array(filename_test_ind, dtype=np.str).reshape(len(filename_test_ind),1), np.expand_dims(true_label_test_ind,1), np.expand_dims(pred_indood_test_ind,1), np.expand_dims(pred_inind_test_ind,1)])
-    test_ood_result = np.hstack([np.array(filename_test_ood, dtype=np.str).reshape(len(filename_test_ood),1), np.expand_dims(true_label_test_ood,1), np.expand_dims(pred_indood_test_ood,1), np.expand_dims(pred_inind_test_ood,1)])
+    test_ind_result = np.hstack([np.array(filename_test_ind, dtype=np.str).reshape(len(filename_test_ind),1), #ファイル名
+                                np.expand_dims(true_label_test_ind,1),  #正解ラベル
+                                np.expand_dims(pred_indood_test_ind,1), #判定（未知＝1,既知＝0）
+                                np.expand_dims(pred_inind_test_ind,1), #判定（既知内クラス）
+                                neighbor_dist_ind_forsave]) #学習データまでの距離（近い順にndistsave個）
+    test_ood_result = np.hstack([np.array(filename_test_ood, dtype=np.str).reshape(len(filename_test_ood),1), 
+                                np.expand_dims(true_label_test_ood,1), 
+                                np.expand_dims(pred_indood_test_ood,1), 
+                                np.expand_dims(pred_inind_test_ood,1),
+                                neighbor_dist_ood_forsave]) 
     
-    return fvalue_indood, accuracy_indood, accuracy_inind, test_ind_result, test_ood_result, feature_train, true_label_train,feature_test_ind, true_label_test_ind, feature_test_ood, true_label_test_ood
+    return confm_indood, fvalue_indood, accuracy_indood, accuracy_inind, test_ind_result, test_ood_result, feature_train, true_label_train,feature_test_ind, true_label_test_ind, feature_test_ood, true_label_test_ood
 
 
 
