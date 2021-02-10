@@ -13,6 +13,17 @@ def switch_mapping(defecttype):
         }
         numclass = 1
 
+    if defecttype == 'oct_temp1':
+        mapping = {
+        'DRUSEN_train': 0 
+        }
+        numclass = 1
+    if defecttype == 'oct_temp2':
+        mapping = {
+        'DRUSEN_test': 0
+        }
+        numclass = 1
+
     if defecttype == 'oct_ind1few10':
         mapping = {
         'NORMAL': 0,      #異常なし
@@ -28,6 +39,42 @@ def switch_mapping(defecttype):
         'CNV': 1,         #choroidal neovascularization; 脈絡膜新生血管
         'DME': 2,         #Diabetic macular edema;糖尿病黄斑浮腫
         'DRUSEN100': 3 #ドルーゼン(網膜の細胞から出る老廃物) ランダム選択した100枚
+        }
+        numclass = 4
+    
+    if defecttype == 'oct_ind1few1000':
+        mapping = {
+        'NORMAL': 0,      #異常なし
+        'CNV': 1,         #choroidal neovascularization; 脈絡膜新生血管
+        'DME': 2,         #Diabetic macular edema;糖尿病黄斑浮腫
+        'DRUSEN1000': 3 #ドルーゼン(網膜の細胞から出る老廃物) ランダム選択した100枚
+        }
+        numclass = 4
+
+    if defecttype == 'oct_ind1few2000':
+        mapping = {
+        'NORMAL': 0,      #異常なし
+        'CNV': 1,         #choroidal neovascularization; 脈絡膜新生血管
+        'DME': 2,         #Diabetic macular edema;糖尿病黄斑浮腫
+        'DRUSEN2000': 3 #ドルーゼン(網膜の細胞から出る老廃物) ランダム選択した100枚
+        }
+        numclass = 4
+
+    if defecttype == 'oct_ind1few4000':
+        mapping = {
+        'NORMAL': 0,      #異常なし
+        'CNV': 1,         #choroidal neovascularization; 脈絡膜新生血管
+        'DME': 2,         #Diabetic macular edema;糖尿病黄斑浮腫
+        'DRUSEN4000': 3 #ドルーゼン(網膜の細胞から出る老廃物) ランダム選択した100枚
+        }
+        numclass = 4
+    
+    if defecttype == 'oct_ind1few8616':
+        mapping = {
+        'NORMAL': 0,      #異常なし
+        'CNV': 1,         #choroidal neovascularization; 脈絡膜新生血管
+        'DME': 2,         #Diabetic macular edema;糖尿病黄斑浮腫
+        'DRUSEN': 3 #ドルーゼン(網膜の細胞から出る老廃物) ランダム選択した100枚
         }
         numclass = 4
 
