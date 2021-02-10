@@ -5,10 +5,11 @@ Adacos, arcface, cosfaceなどの顔認証アーキテクチャを入れたネ�
 
 import argparse
 import csv
-from itertools import cycle
+from itertools import cycle, chain
 import logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 import os
+import random
 import sys
 import shutil
 import numpy as np
@@ -29,16 +30,15 @@ from classify import classify
 from tools import makeumap
 
 
-dir_train = '/home/keisoku/work/ood2/data/oct/minidata' #クラスごとに分かれたフォルダがある場所
-dir_test =  dir_train
+#dir_train = '/home/keisoku/work/ood2/data/oct/minidata' #クラスごとに分かれたフォルダがある場所
+#dir_test =  dir_train
 dir_train = '/home/keisoku/work/ood2/data/oct/train'
 dir_test = '/home/keisoku/work/ood2/data/oct/test'
-#train_folders = 'oct_ind1' #folder2labelで既知クラス扱いにするフォルダ（train用）
-#test_ind_folders = 'oct_ind1' #既知クラス扱いにするフォルダ（テスト用）
+train_folders = 'oct_ind1few10' #folder2labelで既知クラス扱いにするフォルダ（train用）
+test_ind_folders = 'oct_ind1' #既知クラス扱いにするフォルダ（テスト用）
 test_ood_folders = 'oct_ood1' #未知クラス扱いにするフォルダ（テスト用）
-numclass = 3 #既知クラスの個数
+numclass = 4 #既知クラスの個数
 in_channels = 3 #入力チャンネル数
-
 
 def train_net(net,
               metric_fc,
@@ -53,11 +53,32 @@ def train_net(net,
               ):
     #writer = SummaryWriter(comment=f'_{get_args().savedir}')
     writer = SummaryWriter(log_dir=f'{get_args().savedir}')
+    
     dataset_train = oct(in_ch = in_channels, out_ch = numclass, img_dir = dir_train, labelfoldername = train_folders, hflip= True, train = True, pretrained = get_args().load)
     dataset_test_ind = oct(in_ch = in_channels, out_ch = numclass, img_dir = dir_test, labelfoldername = test_ind_folders, hflip= False, train = False, pretrained = get_args().load)
     dataset_test_ood = oct(in_ch = in_channels, out_ch = numclass, img_dir = dir_test, labelfoldername = test_ood_folders, hflip= False, train = False, pretrained = get_args().load)
     
-    train_loader = DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
+    if get_args().imbarance_care == False:
+        train_loader = DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
+    else:
+        logging.info(f'Class Imbarance is considered.')
+        class_count = [i for i in dataset_train.data_distribusion.values()]
+        class_weights = 1./torch.tensor(class_count, dtype=torch.float)
+        class_weights = class_weights.tolist()
+        class_weights_all = []
+        class_weights_all.extend([i] * j for i, j in zip(class_weights, class_count))
+        class_weights_all = list(chain.from_iterable(class_weights_all)) #2次元を1次元に
+        random.seed(0)
+        random.shuffle(class_weights_all)
+        random.seed(0)
+        random.shuffle(dataset_train.ids)
+        weighted_sampler = torch.utils.data.sampler.WeightedRandomSampler(
+            weights=class_weights_all,
+            num_samples=len(class_weights_all),
+            replacement=True
+        )
+        train_loader = DataLoader(dataset_train, batch_size=batch_size, shuffle=False, sampler=weighted_sampler, num_workers=8, pin_memory=True) #shuffle=Falseにする
+    
     test_ind_loader = DataLoader(dataset_test_ind, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True)
     test_ood_loader = DataLoader(dataset_test_ood, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True)
     
@@ -136,7 +157,7 @@ def train_net(net,
 
             if phase == 'test':
                 confm_indood, fvalue_indood, accuracy_indood, accuracy_inind, test_ind_result, test_ood_result, feature_train, true_label_train,feature_test_ind, true_label_test_ind, feature_test_ood, true_label_test_ood = classify(
-                        device, net, numclass, train_loader, test_ind_loader, test_ood_loader, n_train, n_test_ind, n_test_ood, 
+                        device, net, train_loader, test_ind_loader, test_ood_loader, n_train, n_test_ind, n_test_ood, 
                         prune_rate=args.prune_rate, num_features=args.num_features, thr_dist= thr_dist, thr_minsamplenum=args.thr_minsamplenum
                         )
                 
@@ -184,7 +205,7 @@ def train_net(net,
 
                 if best_test < fvalue_indood:
                     logging.info(f'Best model OOdvsIND updated (epoch {epoch + 1})!')
-
+                    best_test = fvalue_indood
                     #結果保存
                     header = ['filename', 'True label', 'Pred(OOD=1,IND=0)', 'Pred(inIND)']
                     savefilename = os.path.join(get_args().savedir,'CP_best_ind') + '_results.csv'
@@ -258,7 +279,8 @@ def get_args():
                         help='Rate of pruning training dataset for classification', dest='prune_rate')
     parser.add_argument('--thr_minsamplenum',  type=int, nargs='?', default=10,
                         help='Min samples to say IND in the neighbor.', dest='thr_minsamplenum')
-                         
+    parser.add_argument('--imbarance_care', action = 'store_true', help='Considering class imbalance')
+           
     
     return parser.parse_args()
 
