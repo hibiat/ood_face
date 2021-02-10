@@ -42,7 +42,7 @@ def pred(phase, device, net, num_features, loader, n_data, prune_rate=None):
     
     return f, label, fname
 
-def classify(device, net, numclass, train_loader, test_ind_loader, test_ood_loader, n_train, n_test_ind, n_test_ood, prune_rate, num_features, thr_dist, thr_minsamplenum):
+def classify(device, net, train_loader, test_ind_loader, test_ood_loader, n_train, n_test_ind, n_test_ood, prune_rate, num_features, thr_dist, thr_minsamplenum):
     net.eval()
     feature_train, true_label_train, filename_train = pred('Train',  device, net, num_features, train_loader, n_train, prune_rate)
     feature_test_ind, true_label_test_ind, filename_test_ind = pred('Test(IND)',  device, net, num_features, test_ind_loader, n_test_ind)
