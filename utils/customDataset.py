@@ -36,11 +36,15 @@ class oct(Dataset):
 
         targetfolder = folder2label.get_allfoldername(self.labelfoldername) #画像を取得する対象フォルダを限定
         targetfile = []
+        self.data_distribusion = {}
         for folder in targetfolder:
-            targetfile.append(glob.glob(os.path.join(self.img_dir, folder) + '/*.jpeg'))
+            files = glob.glob(os.path.join(self.img_dir, folder) + '/*.jpeg')
+            targetfile.append(files)
+            self.data_distribusion[folder] = len(files)
+            logging.info(f'"{folder}" has {len(files)} images.')
         self.ids = list(itertools.chain.from_iterable(targetfile)) #2次元リストを1次元に平坦化
     
-        logging.info('There are %d images in %s.', len(self.ids), self.img_dir)
+        logging.info('Total %d images in %s.', len(self.ids), self.img_dir)
 
     def __len__(self):
         return len(self.ids)
