@@ -64,8 +64,8 @@ class oct(Dataset):
 
         if self.train:
             proclist = [
-                transforms.Pad((fill_left, fill_top, fill_right, fill_bottom), padding_mode='edge'),#padding
-                transforms.RandomCrop(cropsize), #random crop
+                #transforms.Pad((fill_left, fill_top, fill_right, fill_bottom), padding_mode='edge'),#padding
+                #transforms.RandomCrop(cropsize), #random crop
                 transforms.Resize(resizesize), #resize into half
                 transforms.ToTensor()
             ]
@@ -75,8 +75,8 @@ class oct(Dataset):
 
         if not self.train:
             trans = transforms.Compose([
-                transforms.Pad((fill_left, fill_top, fill_right, fill_bottom), padding_mode='edge'),#padding
-                transforms.CenterCrop(cropsize), #center crop
+                #transforms.Pad((fill_left, fill_top, fill_right, fill_bottom), padding_mode='edge'),#padding
+                #transforms.CenterCrop(cropsize), #center crop
                 transforms.Resize(resizesize), #resize into half
                 transforms.ToTensor()
             ]) 
