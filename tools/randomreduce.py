@@ -8,8 +8,8 @@ import os
 import random
 import shutil
 
-dir = "/home/keisoku/work/ood2/data/oct/train/NORMAL1000"
-selectimgnum = 1000 #選択する枚数
+dir = "/home/keisoku/work/ood2/data/oct/train/NORMAL100"
+selectimgnum = 100 #選択する枚数
 
 files = glob.glob(os.path.join(dir, '*.jpeg'))
 random.shuffle(files)
