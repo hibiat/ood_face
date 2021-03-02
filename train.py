@@ -34,7 +34,7 @@ from tools import makeumap
 #dir_test =  dir_train
 dir_train = '/home/keisoku/work/ood2/data/oct/train'
 dir_test = '/home/keisoku/work/ood2/data/oct/test'
-train_folders = 'oct_ind1few10' #folder2labelで既知クラス扱いにするフォルダ（train用）
+train_folders = 'oct_ind1_1000' #folder2labelで既知クラス扱いにするフォルダ（train用）
 test_ind_folders = 'oct_ind1' #既知クラス扱いにするフォルダ（テスト用）
 test_ood_folders = 'oct_ood1' #未知クラス扱いにするフォルダ（テスト用）
 numclass = 4 #既知クラスの個数
@@ -203,9 +203,21 @@ def train_net(net,
                 
                 logging.info('[Test] F_INDOOD: {:.3f}, Accuracy_INDOOD: {:.3f}, Accuracy_inIND:{:.3f}, Dist:(IND){:.3f},(OOD){:.3f},(Ave){:.3f}'.format(fvalue_indood, accuracy_indood, accuracy_inind,med_dist_ind2train, med_dist_ood2train, thr_dist))
 
+                #umapのグラフ作成
+                makeumap.makeumap(numclass, args.num_features, 
+                                        feature_train, true_label_train, 
+                                        feature_test_ind, true_label_test_ind, 
+                                        feature_test_ood, true_label_test_ood, 
+                                        get_args().savedir,
+                                        test_ind_result, test_ood_result)
+
                 if best_test < fvalue_indood:
                     logging.info(f'Best model OOdvsIND updated (epoch {epoch + 1})!')
                     best_test = fvalue_indood
+                    #学習済みモデル保存
+                    torch.save(net.state_dict(),
+                           os.path.join(get_args().savedir, 'CP_best.pth'))
+                           
                     #結果保存
                     header = ['filename', 'True label', 'Pred(OOD=1,IND=0)', 'Pred(inIND)']
                     savefilename = os.path.join(get_args().savedir,'CP_best_ind') + '_results.csv'
@@ -228,19 +240,7 @@ def train_net(net,
                         writer_csv.writerow(['Conf Matrix',  'Pred(OOD)', 'Pred(IND)'])
                         writer_csv.writerow(['True(OOD)', confm_indood[0,0], confm_indood[0,1]])
                         writer_csv.writerow(['True(IND)', confm_indood[1,0], confm_indood[1,1]])
-                       
-                    
-                    #umapのグラフ作成
-                    makeumap.makeumap(numclass, args.num_features, 
-                                        feature_train, true_label_train, 
-                                        feature_test_ind, true_label_test_ind, 
-                                        feature_test_ood, true_label_test_ood, 
-                                        get_args().savedir,
-                                        test_ind_result, test_ood_result)
-                    
-                    #学習済みモデル保存
-                    torch.save(net.state_dict(),
-                           os.path.join(get_args().savedir, 'CP_best.pth'))
+
 
             if save_cp:
                 torch.save(net.state_dict(),

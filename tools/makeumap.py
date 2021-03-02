@@ -38,7 +38,7 @@ def makeumapfitter(f, label):
     
     return fitter, f_embeded
 
-def makeumap(numclass, fsize, train_f, train_label, test_ind_f, test_ind_label, test_ood_f, test_ood_label, savedir, test_ind_result, test_ood_result):
+def makeumap(numclass, fsize, train_f, train_label, test_ind_f, test_ind_label, test_ood_f, test_ood_label, savedir, test_ind_result, test_ood_result, epoch=None):
     
     #Train dataの一部(ランダム選択)でUMAPの次元削減器を作成
     if n_components != fsize:
@@ -81,7 +81,7 @@ def makeumap(numclass, fsize, train_f, train_label, test_ind_f, test_ind_label, 
 
     #学習データと既知を1枚に統合
     fig, ax = plt.subplots(1, figsize=(8.0, 6.0))
-    plt.scatter(train_f_embeded[:,0], train_f_embeded[:,1], s=120.0, c=train_label, marker='.', cmap=cmap_mild, vmin=-0.5, vmax=numclass+1-0.5, alpha=0.01) #学習データは薄く、大きめに表示
+    plt.scatter(train_f_embeded[:,0], train_f_embeded[:,1], s=120.0, c=train_label, marker='.', cmap=cmap_mild, vmin=-0.5, vmax=numclass+1-0.5, alpha=0.1) #学習データは薄く、大きめに表示
     oodindex = np.asarray(test_ind_result[:,2], dtype=np.int)==1 #OODと判定された画像のインデックス
     if np.sum(oodindex) > 0:
         plt.scatter(test_ind_f_embeded[oodindex, 0], test_ind_f_embeded[oodindex, 1], s=5.0, marker='x',c=test_ind_label[oodindex], cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5,  alpha=1.0) 
@@ -100,11 +100,12 @@ def makeumap(numclass, fsize, train_f, train_label, test_ind_f, test_ind_label, 
     plt.title('Train and Known Data')
     plt.tight_layout()
     #plt.show()
-    fig.savefig(os.path.join(savedir, "out_trainIND.png"), format='png', dpi=600)
+    savefilename = os.path.join(savedir, "out_trainIND.png") if epoch is None else os.path.join(savedir, f'{epoch:03}'+"out_trainIND.png")
+    fig.savefig(savefilename, format='png', dpi=600)
 
     #学習データと未知を1枚に統合
     fig, ax = plt.subplots(1, figsize=(8.0, 6.0))
-    plt.scatter(train_f_embeded[:,0], train_f_embeded[:,1], s=120.0, c=train_label, marker='.', cmap=cmap_mild, vmin=-0.5, vmax=numclass+1-0.5, alpha=0.01) #学習データは薄く、大きめに表示
+    plt.scatter(train_f_embeded[:,0], train_f_embeded[:,1], s=120.0, c=train_label, marker='.', cmap=cmap_mild, vmin=-0.5, vmax=numclass+1-0.5, alpha=0.1) #学習データは薄く、大きめに表示
     oodindex = np.asarray(test_ood_result[:,2], dtype=np.int)==1 #OODと判定された画像のインデックス
     if np.sum(oodindex) > 0:
         plt.scatter(test_ood_f_embeded[oodindex, 0], test_ood_f_embeded[oodindex, 1], s=5.0, marker='x', c=np.ones(np.sum(oodindex), dtype=np.int)*numclass, cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5, alpha=1.0) 
@@ -123,11 +124,12 @@ def makeumap(numclass, fsize, train_f, train_label, test_ind_f, test_ind_label, 
     plt.title('Train and Unknown Data')
     plt.tight_layout()
     #plt.show()
-    fig.savefig(os.path.join(savedir, "out_trainOOD.png"), format='png', dpi=600)
+    savefilename = os.path.join(savedir, "out_trainOOD.png") if epoch is None else os.path.join(savedir, f'{epoch:03}'+"out_traiOOD.png")
+    fig.savefig(savefilename, format='png', dpi=600)
 
     #全体のデータを１枚に統合
     fig, ax = plt.subplots(1, figsize=(8.0, 6.0))
-    plt.scatter(train_f_embeded[:,0], train_f_embeded[:,1], s=120.0, c=train_label, marker='.', cmap=cmap_mild, vmin=-0.5, vmax=numclass+1-0.5, alpha=0.01) #学習データは薄く、大きめに表示
+    plt.scatter(train_f_embeded[:,0], train_f_embeded[:,1], s=120.0, c=train_label, marker='.', cmap=cmap_mild, vmin=-0.5, vmax=numclass+1-0.5, alpha=0.1) #学習データは薄く、大きめに表示
     oodindex = np.asarray(test_ind_result[:,2], dtype=np.int)==1 #OODと判定された画像のインデックス
     if np.sum(oodindex) > 0:
         plt.scatter(test_ind_f_embeded[oodindex, 0], test_ind_f_embeded[oodindex, 1], s=5.0, marker='x',c=test_ind_label[oodindex], cmap=cmap, vmin=-0.5, vmax=numclass+1-0.5,  alpha=1.0) 
@@ -152,4 +154,6 @@ def makeumap(numclass, fsize, train_f, train_label, test_ind_f, test_ind_label, 
     plt.title('All Data Embedded via UMAP')
     plt.tight_layout()
     #plt.show()
-    fig.savefig(os.path.join(savedir, "out_all.png"), format='png', dpi=600)
+    savefilename = os.path.join(savedir, "out_all.png") if epoch is None else os.path.join(savedir, f'{epoch:03}'+"out_all.png")
+    fig.savefig(savefilename, format='png', dpi=600)
+
