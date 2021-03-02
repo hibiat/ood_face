@@ -209,7 +209,8 @@ def train_net(net,
                                         feature_test_ind, true_label_test_ind, 
                                         feature_test_ood, true_label_test_ood, 
                                         get_args().savedir,
-                                        test_ind_result, test_ood_result)
+                                        test_ind_result, test_ood_result,
+                                        epoch=epoch+1)
 
                 if best_test < fvalue_indood:
                     logging.info(f'Best model OOdvsIND updated (epoch {epoch + 1})!')
