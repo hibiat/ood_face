@@ -204,7 +204,7 @@ def train_net(net,
                 logging.info('[Test] F_INDOOD: {:.3f}, Accuracy_INDOOD: {:.3f}, Accuracy_inIND:{:.3f}, Dist:(IND){:.3f},(OOD){:.3f},(Ave){:.3f}'.format(fvalue_indood, accuracy_indood, accuracy_inind,med_dist_ind2train, med_dist_ood2train, thr_dist))
 
                 #umapのグラフ保存
-                if epoch+1 % 5 == 0:
+                if (epoch+1) % 5 == 0:
                     makeumap.makeumap(numclass, args.num_features, 
                                             feature_train, true_label_train, 
                                             feature_test_ind, true_label_test_ind, 
