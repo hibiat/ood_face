@@ -131,6 +131,15 @@ def switch_mapping(defecttype):
         }
         numclass = 4
 
+    if defecttype == 'oct_ind1_100_few10to100':
+        mapping = {
+        'NORMAL100': 0,      #異常なし
+        'CNV100': 1,         #choroidal neovascularization; 脈絡膜新生血管
+        'DME100': 2,         #Diabetic macular edema;糖尿病黄斑浮腫
+        'DRUSEN100_dupfrom10': 3 #ドルーゼン(網膜の細胞から出る老廃物) ランダム選択した100枚
+        }
+        numclass = 4
+
     if defecttype == 'oct_ind2':
         mapping = {
         'NORMAL': 0,      #異常なし
